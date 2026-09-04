@@ -1,0 +1,4 @@
+#!/data/data/com.termux/files/usr/bin/bash
+unset LD_PRELOAD
+exec /data/data/com.termux/files/usr/lib/node_modules/opencode-ai/bin/opencode.exe "$@"
+

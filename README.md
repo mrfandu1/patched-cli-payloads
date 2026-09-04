@@ -7,7 +7,7 @@ the companion repo.
 ## Install
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/mrfandu1/patched-cli-termux/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/mrfandu1/patched-cli-payloads/main/install.sh | bash
 ```
 
 ## Contents (payloads-v1)

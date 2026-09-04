@@ -1,0 +1,14 @@
+# Native Linux CLI networking on Termux.
+export HTTPS_PROXY=http://127.0.0.1:18080
+export HTTP_PROXY=http://127.0.0.1:18080
+export NO_PROXY=localhost,127.0.0.1
+export SSL_CERT_FILE="$PREFIX/etc/tls/cert.pem"
+
+if [ -x "$HOME/bin/ensure-local-proxy.sh" ]; then
+  "$HOME/bin/ensure-local-proxy.sh" >/dev/null 2>&1
+fi
+
+export DISABLE_AUTOUPDATER=1
+export PATH="$HOME/.local/bin:$HOME/bin:$PATH"
+
+# Keep API keys in your untracked ~/.bashrc or a credential manager.

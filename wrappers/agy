@@ -1,0 +1,4 @@
+#!/data/data/com.termux/files/usr/bin/bash
+exec env -u LD_PRELOAD /data/data/com.termux/files/usr/glibc/lib/ld-linux-aarch64.so.1 \
+  --library-path /data/data/com.termux/files/usr/glibc/lib \
+  "$HOME/.local/bin/agy.bin" "$@"

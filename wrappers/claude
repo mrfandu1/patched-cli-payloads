@@ -1,0 +1,5 @@
+#!/data/data/com.termux/files/usr/bin/bash
+unset LD_PRELOAD
+export DISABLE_AUTOUPDATER=1
+exec "$HOME/.local/share/claude-termux/claude" "$@"
+
