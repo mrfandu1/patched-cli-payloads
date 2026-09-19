@@ -193,6 +193,42 @@ patchelf --set-interpreter "$PREFIX/lib/musl/lib/ld-musl-aarch64.so.1" \
 install -m 755 "$work_dir/agy.bin" "$HOME/.local/bin/agy.bin"
 patchelf --set-rpath "$PREFIX/glibc/lib" "$HOME/.local/bin/agy.bin"
 
+# agy resolves `bash` through Go's internal/syscall/unix.Eaccess, which calls
+# faccessat2 (arm64 syscall 439) unconditionally and has no ENOSYS fallback.
+# Android's seccomp policy traps that syscall with SIGSYS, and this kernel
+# (4.14) predates it anyway (faccessat2 arrived in Linux 5.8), so agy died with
+# "SIGSYS: bad system call" on every task that runs a tool — plain prompts
+# worked, file creation did not. Rewrite each call site to faccessat (48),
+# which performs the same check; the AT_EACCESS flag it drops is equivalent to
+# the real uid for a non-setuid process. Kept identical to
+# scripts/patch-agy-faccessat2.js, which is the copy upgrade-all.sh uses.
+patch_agy_faccessat2() { # $1 = agy binary; prints number of patched sites
+  node -e '
+const fs = require("fs");
+const path = process.argv[1];
+const OLD = [0xe0, 0x36, 0x80, 0xd2];   // movz x0, #439 (SYS_faccessat2)
+const NEW = [0x00, 0x06, 0x80, 0xd2];   // movz x0, #48  (SYS_faccessat)
+const buf = fs.readFileSync(path);
+let n = 0;
+for (let i = 0; i + 4 <= buf.length; i += 4) {   // aligned only: the same bytes
+  if (OLD.every((b, k) => buf[i + k] === b)) {   // occur once as unaligned data
+    NEW.forEach((b, k) => { buf[i + k] = b; });
+    n++;
+  }
+}
+if (n > 0) fs.writeFileSync(path, buf);
+console.log(n);
+' "$1"
+}
+agy_sites=$(patch_agy_faccessat2 "$HOME/.local/bin/agy.bin")
+if [[ $agy_sites -gt 0 ]]; then
+  echo "   agy: faccessat2 -> faccessat patched at $agy_sites sites"
+else
+  echo "   WARNING: agy faccessat2 patch matched nothing — this agy build differs"
+  echo "            from the one the patch was written for. agy may crash with"
+  echo "            'SIGSYS: bad system call' on tasks that run tools."
+fi
+
 # Codex (static musl — vendor package placement)
 DEST="$PREFIX/lib/node_modules/@openai/codex/node_modules/@openai/codex-linux-arm64"
 mkdir -p "$DEST/vendor/aarch64-unknown-linux-musl/bin"

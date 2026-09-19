@@ -24,5 +24,10 @@ curl --noproxy '*' -fsSL https://raw.githubusercontent.com/mrfandu1/patched-cli-
 | Antigravity | 1.1.25 |
 | Codex | 0.154.0 |
 
+Antigravity also needs a one-instruction binary patch: Android's seccomp policy
+kills `faccessat2`, a syscall this kernel predates, which Go's `Eaccess` calls with
+no fallback, so agy died on any task that ran a tool. The installer rewrites it to
+`faccessat`. See [`docs/agy-sandbox-crash.md`](docs/agy-sandbox-crash.md).
+
 Assets are vendor binaries with Termux loader patches — no login state, API keys,
 or device configuration. Verify with the published `SHA256SUMS`.
