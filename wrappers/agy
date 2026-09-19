@@ -1,4 +1,8 @@
 #!/data/data/com.termux/files/usr/bin/bash
+# Antigravity is glibc-linked, and Termux's glibc is patched to read
+# $PREFIX/glibc/etc/resolv.conf rather than the /etc/resolv.conf that Android
+# lacks. It therefore resolves DNS on its own, so unlike the musl CLIs it needs
+# no proxy.
 exec env -u LD_PRELOAD /data/data/com.termux/files/usr/glibc/lib/ld-linux-aarch64.so.1 \
   --library-path /data/data/com.termux/files/usr/glibc/lib \
   "$HOME/.local/bin/agy.bin" "$@"

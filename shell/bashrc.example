@@ -1,13 +1,13 @@
-# Native Linux CLI networking on Termux.
-export HTTPS_PROXY=http://127.0.0.1:18080
-export HTTP_PROXY=http://127.0.0.1:18080
-export NO_PROXY=localhost,127.0.0.1
-export SSL_CERT_FILE="$PREFIX/etc/tls/cert.pem"
+# Termux shell setup for the patched CLIs.
+#
+# Deliberately no proxy exports here. The loopback CONNECT proxy exists only for
+# the musl-linked CLIs (claude, opencode, codex), whose libc reads the absolute
+# /etc/resolv.conf that Android does not provide. Each wrapper sets the proxy for
+# its own process, so curl, npm, git and everything else in this shell keep
+# talking to the network directly. Exporting it here instead would route every
+# command through 127.0.0.1:18080 and break them whenever the supervisor is down.
 
-if [ -x "$HOME/bin/ensure-local-proxy.sh" ]; then
-  "$HOME/bin/ensure-local-proxy.sh" >/dev/null 2>&1
-fi
-
+export SSL_CERT_FILE="${SSL_CERT_FILE:-$PREFIX/etc/tls/cert.pem}"
 export DISABLE_AUTOUPDATER=1
 export PATH="$HOME/.local/bin:$HOME/bin:$PATH"
 
