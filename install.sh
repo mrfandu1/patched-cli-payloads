@@ -18,9 +18,20 @@ ALPINE_BRANCH="${ALPINE_BRANCH:-v3.24}"
 ALPINE_BASE="https://dl-cdn.alpinelinux.org/alpine/$ALPINE_BRANCH/main/aarch64"
 
 PREFIX="${PREFIX:-/data/data/com.termux/files/usr}"
-repo_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# BASH_SOURCE is an empty array when this script arrives on stdin (`curl | bash`
+# or `bash < install.sh`), and `set -u` turns ${BASH_SOURCE[0]} into a fatal
+# unbound-variable error. That killed the one-shot install on this line before it
+# printed anything. Only look for a checkout when there is a real script path —
+# there is none in standalone mode, which is the mode the one-liner uses.
+repo_dir=""
+_src="${BASH_SOURCE[0]:-}"
+if [[ -n $_src ]]; then
+  repo_dir="$(cd "$(dirname "$_src")" && pwd)"
+fi
 in_repo=0
-[[ -f "$repo_dir/payloads/SHA256SUMS" ]] && in_repo=1
+if [[ -n $repo_dir && -f "$repo_dir/payloads/SHA256SUMS" ]]; then
+  in_repo=1
+fi
 
 die() { echo "ERROR: $*" >&2; exit 1; }
 
