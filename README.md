@@ -15,7 +15,7 @@ Please always use the `curl --noproxy '*'` form above, and read
 curl --noproxy '*' -fsSL https://raw.githubusercontent.com/mrfandu1/patched-cli-payloads/main/install.sh | bash
 ```
 
-## Contents (payloads-v1)
+## Contents (payloads-v2)
 
 | CLI | Version |
 |-----|---------|
