@@ -124,3 +124,27 @@ ls -l ~/agy-page.html
 
 Exit 0 and a non-empty file means the patch is in place. Exit 2 with no output
 means it is not.
+
+## The installed binary no longer matches `RAW-SHA256SUMS`
+
+Expected — do not treat it as corruption. `RAW-SHA256SUMS` in the release
+describes the **payload** (`payloads/antigravity/agy.bin`), i.e. the binary as
+shipped in the `.zst`. The installer patches it after decompressing, so the
+installed `~/.local/bin/agy.bin` is deliberately different:
+
+- `SHA256SUMS` (the `.zst` archives) still verifies — that check happens before
+  decompression and is unaffected.
+- The installed binary differs from the payload by exactly **10 bytes**: 2 bytes
+  (`e0 36` → `00 06`) at each of 5 aligned call sites. Same size, nothing else
+  changed.
+
+To confirm an installed binary is the payload *plus only the patch*:
+
+```bash
+zstd -d -f payloads/antigravity/agy.bin.zst -o /tmp/agy-pristine
+cmp -l /tmp/agy-pristine ~/.local/bin/agy.bin | wc -l    # want: 10
+cmp -l /tmp/agy-pristine ~/.local/bin/agy.bin            # all at the 5 sites
+```
+
+Any other difference means something else rewrote the binary — most likely
+`agy update`, which replaces it wholesale. Re-run the installer.
