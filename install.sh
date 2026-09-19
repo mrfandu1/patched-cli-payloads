@@ -11,7 +11,7 @@ set -Eeuo pipefail
 
 DIST_REPO="mrfandu1/patched-cli-payloads"
 SRC_REPO="mrfandu1/patched-cli-termux"
-RELEASE_TAG="payloads-v1"
+RELEASE_TAG="payloads-v2"
 BASE_URL="https://github.com/$DIST_REPO/releases/download/$RELEASE_TAG"
 # Termux ships no `musl` package, so the musl runtime is fetched from Alpine.
 ALPINE_BRANCH="${ALPINE_BRANCH:-v3.24}"
