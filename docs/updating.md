@@ -161,6 +161,6 @@ That re-packs the musl/glibc executables from upstream npm packages, re-applies
 the loader patches, reinstalls the wrappers, and finishes with `scripts/smoke-test.sh`.
 
 Shipping a genuinely newer pinned version needs the payloads regenerated and the
-`payloads-v1` release assets plus `SHA256SUMS` re-uploaded — the installer
+current release assets plus `SHA256SUMS` re-uploaded — the installer
 verifies checksums, so the release and the pinned versions in `install.sh` have to
 be bumped in the same pass.
