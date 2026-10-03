@@ -168,9 +168,9 @@ install_pkg() { # pkg_name version
 }
 
 echo "==> Installing npm packages"
-CODEX_VER=0.154.0
-install_pkg @anthropic-ai/claude-code 2.1.260
-install_pkg opencode-ai 1.18.27
+CODEX_VER=0.160.0
+install_pkg @anthropic-ai/claude-code 2.1.288
+install_pkg opencode-ai 1.18.34
 install_pkg @openai/codex "$CODEX_VER"
 
 # ---------- binaries ----------

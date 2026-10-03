@@ -44,10 +44,10 @@ package, so the package version and the binary have to move together.
 
 | CLI | Pinned version | Upstream source |
 |-----|----------------|-----------------|
-| Claude Code | 2.1.260 | `@anthropic-ai/claude-code` (npm) |
-| OpenCode | 1.18.27 | `opencode-ai` (npm) |
-| Antigravity | 1.1.25 | Google release binary, self-updates via `agy update` |
-| Codex | 0.154.0 | `@openai/codex` (npm) |
+| Claude Code | 2.1.288 | `@anthropic-ai/claude-code` (npm) |
+| OpenCode | 1.18.34 | `opencode-ai` (npm) |
+| Antigravity | 1.2.16 | Google release binary, self-updates via `agy update` |
+| Codex | 0.160.0 | `@openai/codex` (npm) |
 
 To see whether a newer upstream version exists:
 
@@ -128,6 +128,22 @@ read `$PREFIX/glibc/etc/resolv.conf`, so it resolves DNS itself. claude, opencod
 and codex are musl-linked, and musl only ever reads the absolute
 `/etc/resolv.conf` — a file Android does not provide and that cannot be created
 without root. Those three must go through the proxy.
+
+### `agy` exits 2 with no output on tasks that create or edit files
+
+Plain prompts answer normally; anything that runs a tool dies silently with exit
+code 2, sometimes after the file was already written. This is Android's seccomp
+policy killing `faccessat2`, a syscall this kernel predates. Full explanation in
+[`agy-sandbox-crash.md`](agy-sandbox-crash.md).
+
+The installer patches it, so a normal install is already fixed. If it comes back
+— most likely after `agy update`, which replaces the binary — re-run the
+installer, or re-apply the patch directly:
+
+```bash
+node scripts/patch-agy-faccessat2.js ~/.local/bin/agy.bin   # from a checkout
+```
+
 
 ## Why the proxy is scoped to the wrappers
 
