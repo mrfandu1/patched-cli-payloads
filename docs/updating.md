@@ -47,7 +47,7 @@ package, so the package version and the binary have to move together.
 | Claude Code | 2.1.288 | `@anthropic-ai/claude-code` (npm) |
 | OpenCode | 1.18.34 | `opencode-ai` (npm) |
 | Antigravity | 1.4.2 | Google release binary, self-updates via `agy update` |
-| Codex | 0.160.0 | `@openai/codex` (npm) |
+| Codex | 0.162.0-alpha.10 | `@openai/codex` (npm) |
 
 To see whether a newer upstream version exists:
 
