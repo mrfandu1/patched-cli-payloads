@@ -21,7 +21,7 @@ curl --noproxy '*' -fsSL https://raw.githubusercontent.com/mrfandu1/patched-cli-
 |-----|---------|
 | Claude Code | 2.1.288 |
 | OpenCode | 1.18.34 |
-| Antigravity | 1.2.16 |
+| Antigravity | 1.4.2 |
 | Codex | 0.160.0 |
 
 Antigravity also gets a one-instruction binary patch: this kernel predates the
