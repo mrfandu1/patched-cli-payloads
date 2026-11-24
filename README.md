@@ -19,10 +19,10 @@ curl --noproxy '*' -fsSL https://raw.githubusercontent.com/mrfandu1/patched-cli-
 
 | CLI | Version |
 |-----|---------|
-| Claude Code | 2.1.288 |
-| OpenCode | 1.18.34 |
-| Antigravity | 1.4.2 |
-| Codex | 0.162.0-alpha.10 |
+| Claude Code | 2.1.331 |
+| OpenCode | 2.4.1 |
+| Antigravity | 1.5.16 |
+| Codex | 0.174.0-alpha.1 |
 
 Antigravity also gets a one-instruction binary patch: this kernel predates the
 `faccessat2` syscall its Go runtime calls without a fallback, so the installer

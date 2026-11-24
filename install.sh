@@ -99,7 +99,6 @@ echo "==> Downloading payloads (release $RELEASE_TAG from $DIST_REPO)"
 # Release assets are flat-named; mapped to subdirs locally.
 declare -A ASSETS=(
   [claude/claude.bin.zst]=claude.bin.zst
-  [opencode/opencode.bin.zst]=opencode.bin.zst
   [antigravity/agy.bin.zst]=agy.bin.zst
   [codex/codex.bin.zst]=codex.bin.zst
   [codex/codex-code-mode-host.bin.zst]=codex-code-mode-host.bin.zst
@@ -110,8 +109,9 @@ done
 
 echo "==> Verifying checksums"
 verify_sums() { # $1 = sums file (paths may carry a payloads/ prefix)
-  (cd "$work_dir" && sed 's|  payloads/|  |' "$1" | sha256sum -c --quiet) \
-    || die "checksum mismatch — aborting"
+  # OpenCode v2 comes from npm now, so ignore any stale opencode payload entry.
+  (cd "$work_dir" && sed 's|  payloads/|  |' "$1" | grep -v '^[0-9a-f]\{64\}  opencode/' \
+    | sha256sum -c --quiet) || die "checksum mismatch — aborting"
 }
 if [[ $in_repo == 1 ]]; then
   verify_sums "$repo_dir/payloads/SHA256SUMS"
@@ -122,7 +122,6 @@ fi
 
 echo "==> Decompressing payloads"
 zstd -d -f "$work_dir/claude/claude.bin.zst" -o "$work_dir/claude.bin"
-zstd -d -f "$work_dir/opencode/opencode.bin.zst" -o "$work_dir/opencode.bin"
 zstd -d -f "$work_dir/antigravity/agy.bin.zst" -o "$work_dir/agy.bin"
 zstd -d -f "$work_dir/codex/codex.bin.zst" -o "$work_dir/codex.bin"
 zstd -d -f "$work_dir/codex/codex-code-mode-host.bin.zst" -o "$work_dir/codex-host.bin"
@@ -167,11 +166,22 @@ install_pkg() { # pkg_name version
   fi
 }
 
+pack_extract() { # package_spec destination
+  local package_spec=$1 destination=$2 archive
+  mkdir -p "$destination"
+  archive=$(npm pack --silent --pack-destination "$destination" "$package_spec" | tail -1)
+  tar -xzf "$destination/$archive" -C "$destination"
+}
+
 echo "==> Installing npm packages"
-CODEX_VER=0.162.0-alpha.10
-install_pkg @anthropic-ai/claude-code 2.1.288
-install_pkg opencode-ai 1.18.34
+CODEX_VER=0.174.0-alpha.1
+OPENCODE_VER=2.4.1
+install_pkg @anthropic-ai/claude-code 2.1.331
 install_pkg @openai/codex "$CODEX_VER"
+# OpenCode v2: its postinstall cannot pick a linux binary on Termux's `android`
+# platform, so the CLI metadata and the musl tarball are unpacked by hand.
+pack_extract "@opencode/cli@$OPENCODE_VER" "$work_dir/opencode-cli"
+pack_extract "@opencode/cli-linux-arm64-musl@$OPENCODE_VER" "$work_dir/opencode-musl"
 
 # ---------- binaries ----------
 echo "==> Installing patched binaries and wrappers"
@@ -182,12 +192,16 @@ patchelf --set-interpreter "$PREFIX/lib/musl/lib/ld-musl-aarch64.so.1" \
   "$work_dir/claude.bin"
 install -m 755 "$work_dir/claude.bin" "$HOME/.local/share/claude-termux/claude"
 
-# OpenCode (musl)
-mkdir -p "$PREFIX/lib/node_modules/opencode-ai/bin"
-install -m 755 "$work_dir/opencode.bin" "$PREFIX/lib/node_modules/opencode-ai/bin/opencode.exe"
+# OpenCode v2 (musl)
+opencode_dir="$PREFIX/lib/node_modules/@opencode/cli"
+mkdir -p "$opencode_dir/bin"
+install -m 644 "$work_dir/opencode-cli/package/package.json" "$opencode_dir/package.json"
+install -m 755 "$work_dir/opencode-cli/package/postinstall.mjs" "$opencode_dir/postinstall.mjs"
+install -m 755 "$work_dir/opencode-musl/package/bin/opencode" "$opencode_dir/bin/opencode.exe"
+# patchelf 0.19.2 corrupts this large Bun binary when rewriting RUNPATH; setting
+# only the interpreter is safe. wrappers/opencode supplies the musl library path.
 patchelf --set-interpreter "$PREFIX/lib/musl/lib/ld-musl-aarch64.so.1" \
-  --set-rpath "$PREFIX/lib/musl/lib:$PREFIX/lib/musl/usr/lib" \
-  "$PREFIX/lib/node_modules/opencode-ai/bin/opencode.exe"
+  "$opencode_dir/bin/opencode.exe"
 
 # Antigravity (glibc)
 install -m 755 "$work_dir/agy.bin" "$HOME/.local/bin/agy.bin"
@@ -247,13 +261,20 @@ if [[ ! -x "$PREFIX/glibc/lib/ld-linux-aarch64.so.1" ]]; then
 fi
 
 # ---------- wrappers ----------
+# OpenCode v1 (opencode-ai) is gone — the v2 wrapper is the only `opencode`.
+remove_opencode_v1() {
+  rm -f "$PREFIX/bin/opencode-v1"
+}
 if [[ $in_repo == 1 ]]; then
+  remove_opencode_v1
   rm -f "$PREFIX/bin/claude" "$PREFIX/bin/opencode"
   install -m 755 "$repo_dir/wrappers/claude" "$PREFIX/bin/claude"
   install -m 755 "$repo_dir/wrappers/opencode" "$PREFIX/bin/opencode"
   install -m 755 "$repo_dir/wrappers/agy" "$HOME/.local/bin/agy"
+  ln -sf "$PREFIX/bin/opencode" "$PREFIX/bin/opencode2"
 else
   # standalone mode: write wrappers directly
+  remove_opencode_v1
   rm -f "$PREFIX/bin/claude" "$PREFIX/bin/opencode"
   # Standalone mode has no checkout to copy wrappers from. The proxy is scoped to
   # each CLI process — see wrappers/claude for why it must not be shell-wide.
@@ -266,18 +287,21 @@ export SSL_CERT_FILE=\"\${SSL_CERT_FILE:-$PREFIX/etc/tls/cert.pem}\"
 if [ -x \"\$HOME/bin/ensure-local-proxy.sh\" ]; then \"\$HOME/bin/ensure-local-proxy.sh\" >/dev/null 2>&1; fi
 exec \"\$HOME/.local/share/claude-termux/claude\" \"\$@\"" > "$PREFIX/bin/claude"
   printf '#!%s\n%s\n' "$PREFIX/bin/bash" "unset LD_PRELOAD
+export OPENCODE_DISABLE_AUTOUPDATE=1
 export HTTP_PROXY=http://127.0.0.1:18080
 export HTTPS_PROXY=http://127.0.0.1:18080
 export NO_PROXY=localhost,127.0.0.1
+export LD_LIBRARY_PATH=\"$PREFIX/lib/musl/lib:$PREFIX/lib/musl/usr/lib\${LD_LIBRARY_PATH:+:\$LD_LIBRARY_PATH}\"
 export SSL_CERT_FILE=\"\${SSL_CERT_FILE:-$PREFIX/etc/tls/cert.pem}\"
 if [ -x \"\$HOME/bin/ensure-local-proxy.sh\" ]; then \"\$HOME/bin/ensure-local-proxy.sh\" >/dev/null 2>&1; fi
-exec $PREFIX/lib/node_modules/opencode-ai/bin/opencode.exe \"\$@\"" > "$PREFIX/bin/opencode"
+exec $PREFIX/lib/node_modules/@opencode/cli/bin/opencode.exe \"\$@\"" > "$PREFIX/bin/opencode"
   # Antigravity is glibc-linked and resolves DNS through Termux's patched
   # $PREFIX/glibc/etc/resolv.conf, so it needs no proxy.
   printf '#!%s\n%s\n' "$PREFIX/bin/bash" "exec env -u LD_PRELOAD $PREFIX/glibc/lib/ld-linux-aarch64.so.1 \\
   --library-path $PREFIX/glibc/lib \\
   \"\$HOME/.local/bin/agy.bin\" \"\$@\"" > "$HOME/.local/bin/agy"
   chmod 755 "$PREFIX/bin/claude" "$PREFIX/bin/opencode" "$HOME/.local/bin/agy"
+  ln -sf "$PREFIX/bin/opencode" "$PREFIX/bin/opencode2"
 fi
 
 # codex entry: the npm shim uses a #!/usr/bin/env shebang that does not exist on

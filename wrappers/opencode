@@ -1,12 +1,17 @@
 #!/data/data/com.termux/files/usr/bin/bash
-# opencode.exe is musl-linked and cannot resolve DNS on Android for the same
-# reason as claude — see wrappers/claude. The proxy is scoped to this process.
+# OpenCode v2 ships only a musl binary for linux-arm64. Like claude it cannot
+# resolve DNS on Android (musl reads the absolute /etc/resolv.conf), so the
+# loopback proxy is scoped to this process. patchelf can set the interpreter on
+# this large Bun binary but corrupts it when rewriting RUNPATH, so the musl
+# library path is supplied here instead of baking it into the ELF.
 unset LD_PRELOAD
+export OPENCODE_DISABLE_AUTOUPDATE=1
 export HTTP_PROXY=http://127.0.0.1:18080
 export HTTPS_PROXY=http://127.0.0.1:18080
 export NO_PROXY=localhost,127.0.0.1
+export LD_LIBRARY_PATH="${PREFIX:-/data/data/com.termux/files/usr}/lib/musl/lib:${PREFIX:-/data/data/com.termux/files/usr}/lib/musl/usr/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 export SSL_CERT_FILE="${SSL_CERT_FILE:-${PREFIX:-/data/data/com.termux/files/usr}/etc/tls/cert.pem}"
 if [ -x "$HOME/bin/ensure-local-proxy.sh" ]; then
   "$HOME/bin/ensure-local-proxy.sh" >/dev/null 2>&1
 fi
-exec "${PREFIX:-/data/data/com.termux/files/usr}/lib/node_modules/opencode-ai/bin/opencode.exe" "$@"
+exec "${PREFIX:-/data/data/com.termux/files/usr}/lib/node_modules/@opencode/cli/bin/opencode.exe" "$@"
