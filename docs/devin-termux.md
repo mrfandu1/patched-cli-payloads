@@ -150,8 +150,8 @@ packaging gap that a patch can close:
 - There is no `bubblewrap` package in the Termux repos (main or TUR), and
   building it would not help — the kernel and seccomp policy are the blocker.
 
-`socat` is packaged and installed, but it is the smaller half of the
-requirement; without `bwrap` the sandbox still cannot start.
+`socat` is in the Termux repos (and installed on this device), but it is the
+smaller half of the requirement; without `bwrap` the sandbox still cannot start.
 
 `wrappers/devin` fails fast instead of letting the CLI die after a prompt:
 
