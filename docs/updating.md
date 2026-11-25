@@ -1,7 +1,7 @@
 # Updating the patched CLIs
 
 For installs created with the one-shot curl installer on native aarch64 Termux.
-Covers claude, opencode, agy (Antigravity) and codex.
+Covers claude, opencode, agy (Antigravity), codex and devin.
 
 ## Quick update
 
@@ -33,6 +33,7 @@ claude --version
 opencode --version
 agy --version
 codex --version
+devin --version
 ```
 
 ## What "update" gets you
@@ -44,17 +45,19 @@ package, so the package version and the binary have to move together.
 
 | CLI | Pinned version | Upstream source |
 |-----|----------------|-----------------|
-| Claude Code | 2.1.288 | `@anthropic-ai/claude-code` (npm) |
-| OpenCode | 1.18.34 | `opencode-ai` (npm) |
-| Antigravity | 1.4.2 | Google release binary, self-updates via `agy update` |
-| Codex | 0.162.0-alpha.10 | `@openai/codex` (npm) |
+| Claude Code | 2.1.331 | `@anthropic-ai/claude-code` (npm) |
+| OpenCode | 2.4.1 | `@opencode/cli` + `@opencode/cli-linux-arm64-musl` (npm) |
+| Antigravity | 1.5.16 | Google release binary, self-updates via `agy update` |
+| Codex | 0.174.0-alpha.1 | `@openai/codex` (npm) |
+| Devin | 3000.14.30821 | `devin` + `devin-linux-arm64` (npm) |
 
 To see whether a newer upstream version exists:
 
 ```bash
 npm view @anthropic-ai/claude-code version
-npm view opencode-ai version
+npm view @opencode/cli version
 npm view @openai/codex version
+npm view devin version
 ```
 
 If those are higher than the table above, the payloads have not been rebuilt yet.
@@ -64,15 +67,20 @@ Re-running the installer will not get you the newer version.
 
 The patched binaries are not normal npm installs:
 
-- **opencode** — the patched `opencode.exe` lives *inside* the npm package at
-  `$PREFIX/lib/node_modules/opencode-ai/bin/`. `npm install -g opencode-ai`
-  replaces the package and removes the patched binary, leaving the wrapper
-  pointing at a missing file.
+- **opencode** — v2 is assembled from `@opencode/cli` plus the platform
+  optional dependency `@opencode/cli-linux-arm64-musl`; the patched binary
+  lives at `$PREFIX/lib/node_modules/@opencode/cli/bin/opencode.exe`. There is
+  no npm package whose postinstall survives Termux's `android` platform, so the
+  upgrade script repacks the musl tarball itself.
 - **claude** — the patched binary lives outside the package in
   `~/.local/share/claude-termux/`, so an npm update moves the package ahead of
   the binary and the two drift apart.
 - **codex** — the vendored `vendor/aarch64-unknown-linux-musl/bin/` tree is
   assembled by the installer, not shipped by npm for Termux.
+- **devin** — npm never installs `devin-linux-arm64` on Termux (its `os` field
+  is `linux`, Node reports `android`), and npm relinks `$PREFIX/bin/devin` to a
+  launcher with no binary to run. Re-run `scripts/install-devin-termux.sh`
+  after any npm-driven upgrade.
 
 Always let the installer move the package and the binary together.
 
@@ -144,6 +152,22 @@ installer, or re-apply the patch directly:
 node scripts/patch-agy-faccessat2.js ~/.local/bin/agy.bin   # from a checkout
 ```
 
+### `devin` says `unsupported platform android-arm64`
+
+An npm install replaced the patched launcher (or the arm64 payload is missing
+because npm skipped the optional dependency). Repair both in one step:
+
+```bash
+scripts/install-devin-termux.sh
+```
+
+### `devin --sandbox` refuses to start
+
+Expected. The bwrap+seccomp sandbox needs unprivileged user namespaces, and
+Android refuses them (`unshare -Ur` → `EINVAL`); Termux has no bubblewrap
+package either. Run without `--sandbox`. Details in
+[`devin-termux.md`](devin-termux.md#sandbox).
+
 
 ## Why the proxy is scoped to the wrappers
 
@@ -163,6 +187,7 @@ So each wrapper sets the proxy for its own process only:
 | `opencode` | yes | musl |
 | `codex` | yes | static musl Rust binary behind a JS launcher |
 | `agy` | no | glibc with Termux's patched resolver |
+| `devin` | no | static ELF, bundles hickory-dns |
 | `curl`, `npm`, `git`, node | no | bionic |
 
 ## Maintainer path
@@ -175,8 +200,11 @@ scripts/upgrade-all.sh
 
 That re-packs the musl/glibc executables from upstream npm packages, re-applies
 the loader patches, reinstalls the wrappers, and finishes with `scripts/smoke-test.sh`.
+Devin is covered by the same run through `scripts/install-devin-termux.sh`, which
+resolves the current npm version itself instead of using a pin.
 
 Shipping a genuinely newer pinned version needs the payloads regenerated and the
 current release assets plus `SHA256SUMS` re-uploaded — the installer
 verifies checksums, so the release and the pinned versions in `install.sh` have to
-be bumped in the same pass.
+be bumped in the same pass. Devin is the exception: its payload comes from the npm
+registry by version, so bumping `DEVIN_VER` in `install.sh` is enough.

@@ -23,10 +23,19 @@ curl --noproxy '*' -fsSL https://raw.githubusercontent.com/mrfandu1/patched-cli-
 | OpenCode | 2.4.1 |
 | Antigravity | 1.5.16 |
 | Codex | 0.174.0-alpha.1 |
+| Devin | 3000.14.30821 |
 
 Antigravity also gets a one-instruction binary patch: this kernel predates the
 `faccessat2` syscall its Go runtime calls without a fallback, so the installer
 rewrites each call site to `faccessat`.
+
+Devin ships a statically linked aarch64 ELF as a `linux-arm64` optional
+dependency, which npm skips on Termux's `android` platform, and a launcher whose
+`#!/usr/bin/env node` shebang does not exist here. The installer fetches the
+payload from the npm registry and installs a wrapper that execs it directly — no
+loader patch and no proxy. Its `--sandbox` mode cannot work on Termux
+(unprivileged user namespaces are denied); see
+[`docs/devin-termux.md`](docs/devin-termux.md).
 
 Assets are vendor binaries with Termux loader patches — no login state, API keys,
 or device configuration. Verify with the published `SHA256SUMS`.

@@ -1,0 +1,34 @@
+#!/data/data/com.termux/files/usr/bin/bash
+# Devin CLI for Termux.
+#
+# npm skips the linux-arm64 optional dependency here because Node reports
+# process.platform === "android", so scripts/install-devin-termux.sh fetches the
+# payload and places it beside the npm launcher. The payload is a statically
+# linked aarch64 ELF with no PT_INTERP: no loader patch, no musl/glibc runtime,
+# and no loopback proxy (it carries hickory-dns and resolves DNS itself).
+unset LD_PRELOAD
+
+PREFIX="${PREFIX:-/data/data/com.termux/files/usr}"
+BIN="$PREFIX/lib/node_modules/devin-linux-arm64/bin/devin"
+
+# Android refuses unprivileged user namespaces (unshare -Ur -> EINVAL) and there
+# is no bubblewrap package for Termux, so the bwrap+seccomp sandbox cannot start.
+# `--sandbox` and /mode autonomous would otherwise fail after the prompt is typed.
+sandbox=0
+[ "${DEVIN_SANDBOX:-}" = "true" ] && sandbox=1
+for arg in "$@"; do
+  case $arg in
+    --sandbox | --sandbox=true) sandbox=1 ;;
+  esac
+done
+if [ "$sandbox" = 1 ] && ! command -v bwrap >/dev/null 2>&1; then
+  cat >&2 <<'EOF'
+devin: --sandbox cannot work on Termux.
+  Android blocks unprivileged user namespaces (unshare -Ur -> EINVAL) and there
+  is no bubblewrap package for Termux, so bwrap+seccomp has nothing to stand on.
+  Run without --sandbox, or run devin inside proot-distro for an isolated box.
+EOF
+  exit 2
+fi
+
+exec "$BIN" "$@"

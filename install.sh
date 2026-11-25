@@ -176,6 +176,7 @@ pack_extract() { # package_spec destination
 echo "==> Installing npm packages"
 CODEX_VER=0.174.0-alpha.1
 OPENCODE_VER=2.4.1
+DEVIN_VER="${DEVIN_VER:-3000.14.30821}"
 install_pkg @anthropic-ai/claude-code 2.1.331
 install_pkg @openai/codex "$CODEX_VER"
 # OpenCode v2: its postinstall cannot pick a linux binary on Termux's `android`
@@ -318,13 +319,31 @@ process.env.SSL_CERT_FILE = process.env.SSL_CERT_FILE || '$PREFIX/etc/tls/cert.p
 import('$PREFIX/lib/node_modules/@openai/codex/bin/codex.js')" > "$PREFIX/bin/codex"
 chmod 755 "$PREFIX/bin/codex"
 
+# Devin CLI: a statically linked aarch64 ELF with no PT_INTERP — no loader patch
+# and no proxy (it resolves DNS itself). npm skips its linux-arm64 optional
+# dependency on Termux's `android` platform and its launcher has no
+# android-arm64 entry, so scripts/install-devin-termux.sh fetches the payload
+# from the registry, patches the launcher, and installs wrappers/devin.
+echo "==> Installing Devin CLI $DEVIN_VER"
+if [[ $in_repo == 1 ]]; then
+  DEVIN_VER="$DEVIN_VER" bash "$repo_dir/scripts/install-devin-termux.sh"
+else
+  curl --noproxy '*' -fsSL -o "$work_dir/install-devin-termux.sh" \
+    "https://raw.githubusercontent.com/$DIST_REPO/main/scripts/install-devin-termux.sh"
+  curl --noproxy '*' -fsSL -o "$work_dir/devin-wrapper" \
+    "https://raw.githubusercontent.com/$DIST_REPO/main/wrappers/devin"
+  chmod 755 "$work_dir/install-devin-termux.sh"
+  DEVIN_VER="$DEVIN_VER" bash "$work_dir/install-devin-termux.sh" \
+    --wrapper "$work_dir/devin-wrapper"
+fi
+
 # ---------- proxy ----------
 echo "==> Ensuring loopback proxy"
 proxy_up || { install_proxy; "$HOME/bin/ensure-local-proxy.sh" 2>/dev/null || true; }
 
 echo
 echo "Installed:"
-for c in claude opencode agy codex; do
+for c in claude opencode agy codex devin; do
   printf '  %-10s ' "$c"
   command -v "$c" >/dev/null 2>&1 && timeout 30 "$c" --version 2>&1 | head -1 || echo "(not on PATH)"
 done
@@ -345,8 +364,10 @@ echo "Next steps:"
 echo "  1. Add to ~/.bashrc (PATH and cert bundle only — do NOT export a proxy there):"
 echo "     export SSL_CERT_FILE=\$PREFIX/etc/tls/cert.pem DISABLE_AUTOUPDATER=1"
 echo "     export PATH=\"\$HOME/.local/bin:\$HOME/bin:\$PATH\""
-echo "  2. Log in to each CLI (claude, codex login --device-auth, agy, opencode auth login)"
+echo "  2. Log in to each CLI (claude, codex login --device-auth, agy, opencode auth login,"
+echo "     devin auth login — pick \"2 Paste a token manually\" on Termux)"
 echo "  See shell/bashrc.example and README.md for details."
 echo
 echo "  claude, opencode and codex set the loopback proxy inside their own wrappers,"
 echo "  so a shell-wide HTTPS_PROXY is never needed. agy resolves DNS on its own."
+echo "  devin is static and resolves DNS itself, so it needs no proxy either."
